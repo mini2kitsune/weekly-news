@@ -342,6 +342,7 @@
     <option value="">読み込み中...</option>
   </select>
 </div>
+<div id="voiceDebug" style="background:#1a1a1a;color:#4a9eff;font-size:11px;padding:8px 16px;max-height:150px;overflow:auto;"></div>
 
 <div class="content" id="content">
   <div class="loading">
@@ -638,6 +639,11 @@ function loadVoices() {
     };
     return score(b) - score(a);
   });
+
+  // Debug: show all raw voices
+  const debugEl = document.getElementById('voiceDebug');
+  debugEl.innerHTML = '<b>全音声 (' + allVoices.length + '件):</b><br>' +
+    allVoices.map(v => v.name + ' [' + v.lang + ']').join('<br>');
 
   const picker = document.getElementById('voicePicker');
   picker.innerHTML = '';
