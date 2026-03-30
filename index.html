@@ -130,6 +130,33 @@
     border-radius: 16px !important;
   }
 
+  .voice-bar {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .voice-bar label {
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .voice-bar select {
+    flex: 1;
+    padding: 6px 10px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
   /* Content */
   .content {
     padding: 16px;
@@ -309,6 +336,12 @@
   <span class="audio-status" id="audioStatus">音声: 準備OK</span>
   <button class="speed-btn" id="btnSpeed" onclick="cycleSpeed()">1x</button>
 </div>
+<div class="voice-bar">
+  <label for="voicePicker">声:</label>
+  <select id="voicePicker" onchange="selectVoice(this.value)">
+    <option value="">読み込み中...</option>
+  </select>
+</div>
 
 <div class="content" id="content">
   <div class="loading">
@@ -332,6 +365,8 @@ let isPaused = false;
 let speechRate = 1.0;
 const speeds = [0.8, 1.0, 1.2, 1.5, 1.8];
 let speedIndex = 1;
+let selectedVoice = null;
+let jaVoices = [];
 
 // === Base URL detection ===
 function getBaseUrl() {
@@ -505,10 +540,8 @@ function speakChunks(chunks, index) {
   utter.lang = 'ja-JP';
   utter.rate = speechRate;
 
-  // Try to find a Japanese voice
-  const voices = synth.getVoices();
-  const jaVoice = voices.find(v => v.lang.startsWith('ja'));
-  if (jaVoice) utter.voice = jaVoice;
+  // Use selected voice
+  if (selectedVoice) utter.voice = selectedVoice;
 
   utter.onend = () => {
     speakChunks(chunks, index + 1);
@@ -570,10 +603,58 @@ function updateAudioUI(state) {
   }
 }
 
+// === Voice picker ===
+function loadVoices() {
+  const synth = window.speechSynthesis;
+  const allVoices = synth.getVoices();
+  jaVoices = allVoices.filter(v => v.lang.startsWith('ja'));
+
+  const picker = document.getElementById('voicePicker');
+  picker.innerHTML = '';
+
+  if (jaVoices.length === 0) {
+    picker.innerHTML = '<option value="">日本語の声が見つかりません</option>';
+    return;
+  }
+
+  // Sort: prefer enhanced/premium voices (they usually have longer names or "Enhanced"/"Premium" tags)
+  jaVoices.sort((a, b) => {
+    const aScore = (a.name.match(/enhanced|premium|拡張/i) ? 10 : 0) + (a.localService ? 0 : 5);
+    const bScore = (b.name.match(/enhanced|premium|拡張/i) ? 10 : 0) + (b.localService ? 0 : 5);
+    return bScore - aScore;
+  });
+
+  jaVoices.forEach((voice, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    const tag = voice.name.match(/enhanced|premium|拡張/i) ? ' (高品質)' : '';
+    opt.textContent = voice.name + tag;
+    picker.appendChild(opt);
+  });
+
+  // Auto-select best voice
+  selectedVoice = jaVoices[0];
+  picker.value = '0';
+}
+
+function selectVoice(index) {
+  selectedVoice = jaVoices[parseInt(index)];
+  // Restart if currently speaking
+  if (isSpeaking) {
+    stopSpeech();
+    toggleSpeech();
+  }
+}
+
 // === Init ===
-// Wait for voices to load
-window.speechSynthesis.onvoiceschanged = () => {};
-loadIndex();
+function init() {
+  loadVoices();
+  loadIndex();
+}
+
+// Voices may load async
+window.speechSynthesis.onvoiceschanged = loadVoices;
+init();
 </script>
 
 </body>
