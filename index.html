@@ -608,55 +608,43 @@ function loadVoices() {
   const synth = window.speechSynthesis;
   const allVoices = synth.getVoices();
 
-  // Show ALL voices (not just Japanese) so user can see what's available
-  // But put Japanese voices first
+  // Japanese voices only
   const jaOnly = allVoices.filter(v => v.lang.startsWith('ja'));
-  const others = allVoices.filter(v => !v.lang.startsWith('ja'));
-  jaVoices = [...jaOnly, ...others];
+  jaVoices = jaOnly;
 
   const picker = document.getElementById('voicePicker');
   picker.innerHTML = '';
 
   if (jaVoices.length === 0) {
-    picker.innerHTML = '<option value="">声が見つかりません</option>';
+    picker.innerHTML = '<option value="">日本語の声が見つかりません</option>';
     return;
   }
 
-  // Debug: show count
-  console.log('Available voices:', allVoices.length, 'Japanese:', jaOnly.length);
-  allVoices.forEach(v => console.log(v.name, v.lang, v.localService));
+  // Sort priority: Siri first, then Enhanced, then others
+  jaVoices.sort((a, b) => {
+    const score = (v) => {
+      const name = v.name.toLowerCase();
+      if (name.includes('siri')) return 30;
+      if (name.match(/enhanced|premium|拡張/)) return 20;
+      return 0;
+    };
+    return score(b) - score(a);
+  });
 
-  jaOnly.forEach((voice, i) => {
+  jaVoices.forEach((voice, i) => {
     const opt = document.createElement('option');
     opt.value = i;
-    const enhanced = voice.name.match(/enhanced|premium|拡張/i) ? ' (高品質)' : '';
-    opt.textContent = voice.name + enhanced;
+    opt.textContent = voice.name;
     picker.appendChild(opt);
   });
 
-  // Add separator and other languages
-  if (others.length > 0) {
-    const sep = document.createElement('option');
-    sep.disabled = true;
-    sep.textContent = '── 他の言語 ──';
-    picker.appendChild(sep);
-
-    others.forEach((voice, i) => {
-      const opt = document.createElement('option');
-      opt.value = jaOnly.length + i;
-      opt.textContent = `${voice.name} (${voice.lang})`;
-      picker.appendChild(opt);
-    });
-  }
-
-  // Auto-select best Japanese voice
-  if (jaOnly.length > 0) {
-    // Prefer enhanced
-    const enhanced = jaOnly.findIndex(v => v.name.match(/enhanced|premium|拡張/i));
-    const bestIdx = enhanced >= 0 ? enhanced : 0;
-    selectedVoice = jaOnly[bestIdx];
-    picker.value = String(bestIdx);
-  }
+  // Auto-select: prefer Siri male > Siri > Enhanced > first
+  const siriMale = jaVoices.findIndex(v => v.name.toLowerCase().match(/siri.*male|siri.*男/));
+  const siri = jaVoices.findIndex(v => v.name.toLowerCase().includes('siri'));
+  const enhanced = jaVoices.findIndex(v => v.name.match(/enhanced|premium|拡張/i));
+  const bestIdx = siriMale >= 0 ? siriMale : siri >= 0 ? siri : enhanced >= 0 ? enhanced : 0;
+  selectedVoice = jaVoices[bestIdx];
+  picker.value = String(bestIdx);
 }
 
 function selectVoice(index) {
