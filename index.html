@@ -608,28 +608,39 @@ function loadVoices() {
   const synth = window.speechSynthesis;
   const allVoices = synth.getVoices();
 
-  // Japanese voices only
-  const jaOnly = allVoices.filter(v => v.lang.startsWith('ja'));
-  jaVoices = jaOnly;
+  if (allVoices.length === 0) return;
 
-  const picker = document.getElementById('voicePicker');
-  picker.innerHTML = '';
+  // Keep all voices that are Japanese OR contain Siri/O-Ren/Otoya in name
+  const isUseful = (v) => {
+    const name = v.name.toLowerCase();
+    return v.lang.startsWith('ja') ||
+           name.includes('siri') ||
+           name.includes('o-ren') ||
+           name.includes('otoya') ||
+           name.includes('kyoko');
+  };
 
+  jaVoices = allVoices.filter(isUseful);
+
+  // If nothing found with filter, show all voices
   if (jaVoices.length === 0) {
-    picker.innerHTML = '<option value="">日本語の声が見つかりません</option>';
-    return;
+    jaVoices = [...allVoices];
   }
 
-  // Sort priority: Siri first, then Enhanced, then others
+  // Sort: Siri first, then Japanese, then rest
   jaVoices.sort((a, b) => {
     const score = (v) => {
       const name = v.name.toLowerCase();
       if (name.includes('siri')) return 30;
       if (name.match(/enhanced|premium|拡張/)) return 20;
+      if (v.lang.startsWith('ja')) return 10;
       return 0;
     };
     return score(b) - score(a);
   });
+
+  const picker = document.getElementById('voicePicker');
+  picker.innerHTML = '';
 
   jaVoices.forEach((voice, i) => {
     const opt = document.createElement('option');
@@ -638,11 +649,9 @@ function loadVoices() {
     picker.appendChild(opt);
   });
 
-  // Auto-select: prefer Siri male > Siri > Enhanced > first
-  const siriMale = jaVoices.findIndex(v => v.name.toLowerCase().match(/siri.*male|siri.*男/));
+  // Auto-select: Siri > Enhanced > first
   const siri = jaVoices.findIndex(v => v.name.toLowerCase().includes('siri'));
-  const enhanced = jaVoices.findIndex(v => v.name.match(/enhanced|premium|拡張/i));
-  const bestIdx = siriMale >= 0 ? siriMale : siri >= 0 ? siri : enhanced >= 0 ? enhanced : 0;
+  const bestIdx = siri >= 0 ? siri : 0;
   selectedVoice = jaVoices[bestIdx];
   picker.value = String(bestIdx);
 }
