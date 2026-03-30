@@ -79,82 +79,57 @@
     background-position: right 12px center;
   }
 
-  /* Audio controls */
-  .audio-bar {
-    position: sticky;
-    top: 65px;
-    z-index: 99;
+  /* Read aloud tip */
+  .read-aloud-tip {
     background: var(--surface2);
     border-bottom: 1px solid var(--border);
-    padding: 8px 16px;
+    padding: 10px 16px;
     display: flex;
     align-items: center;
-    gap: 8px;
-  }
-
-  .audio-bar button {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text);
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    font-size: 16px;
+    gap: 10px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
   }
 
-  .audio-bar button:active {
-    background: var(--accent);
-    border-color: var(--accent);
+  .read-aloud-tip .tip-icon {
+    font-size: 20px;
+    flex-shrink: 0;
   }
 
-  .audio-bar button.playing {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-
-  .audio-status {
-    font-size: 12px;
-    color: var(--text-dim);
-    flex: 1;
-  }
-
-  .speed-btn {
-    font-size: 12px !important;
-    width: auto !important;
-    padding: 4px 10px !important;
-    border-radius: 16px !important;
-  }
-
-  .voice-bar {
-    background: var(--surface2);
-    border-bottom: 1px solid var(--border);
-    padding: 6px 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .voice-bar label {
-    font-size: 12px;
-    color: var(--text-dim);
-    white-space: nowrap;
-  }
-
-  .voice-bar select {
-    flex: 1;
-    padding: 6px 10px;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+  .read-aloud-tip .tip-text {
     font-size: 13px;
-    appearance: none;
-    -webkit-appearance: none;
+    color: var(--text-dim);
+  }
+
+  .read-aloud-detail {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+  }
+
+  .read-aloud-detail.open {
+    max-height: 300px;
+    padding: 12px 16px;
+  }
+
+  .read-aloud-detail ol {
+    padding-left: 20px;
+    margin: 0;
+  }
+
+  .read-aloud-detail li {
+    font-size: 13px;
+    color: var(--text);
+    margin: 6px 0;
+    line-height: 1.6;
+  }
+
+  .read-aloud-detail .note {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 8px;
   }
 
   /* Content */
@@ -330,19 +305,19 @@
   </div>
 </div>
 
-<div class="audio-bar">
-  <button id="btnPlay" onclick="toggleSpeech()" title="再生/一時停止">&#9654;</button>
-  <button id="btnStop" onclick="stopSpeech()" title="停止">&#9632;</button>
-  <span class="audio-status" id="audioStatus">音声: 準備OK</span>
-  <button class="speed-btn" id="btnSpeed" onclick="cycleSpeed()">1x</button>
+<div class="read-aloud-tip" onclick="toggleTip()">
+  <span class="tip-icon">&#x1f50a;</span>
+  <span class="tip-text">音声で聞くには？（タップで表示）</span>
 </div>
-<div class="voice-bar">
-  <label for="voicePicker">声:</label>
-  <select id="voicePicker" onchange="selectVoice(this.value)">
-    <option value="">読み込み中...</option>
-  </select>
+<div class="read-aloud-detail" id="readAloudDetail">
+  <ol>
+    <li><b>設定</b> → <b>アクセシビリティ</b> → <b>読み上げコンテンツ</b></li>
+    <li><b>「画面の読み上げ」</b>をONにする</li>
+    <li>このページを開いた状態で、<b>画面上部から2本指で下にスワイプ</b></li>
+    <li>コントローラーが出たら再生ボタンで読み上げ開始</li>
+  </ol>
+  <p class="note">※ 設定 → アクセシビリティ → 読み上げコンテンツ → 声 で、Siri音声など好きな声に変更できます</p>
 </div>
-<div id="voiceDebug" style="background:#1a1a1a;color:#4a9eff;font-size:11px;padding:8px 16px;max-height:150px;overflow:auto;"></div>
 
 <div class="content" id="content">
   <div class="loading">
@@ -359,15 +334,6 @@
 <script>
 // === State ===
 let issues = [];
-let currentText = '';
-let speechUtterance = null;
-let isSpeaking = false;
-let isPaused = false;
-let speechRate = 1.0;
-const speeds = [0.8, 1.0, 1.2, 1.5, 1.8];
-let speedIndex = 1;
-let selectedVoice = null;
-let jaVoices = [];
 
 // === Base URL detection ===
 function getBaseUrl() {
@@ -407,7 +373,6 @@ async function loadIndex() {
 
 // === Load a specific issue ===
 async function loadIssue(filename) {
-  stopSpeech();
   const content = document.getElementById('content');
   content.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:12px;">読み込み中...</p></div>';
 
@@ -415,34 +380,14 @@ async function loadIssue(filename) {
     const res = await fetch(getBaseUrl() + 'news/' + filename);
     const md = await res.text();
 
-    // Render markdown
     const html = marked.parse(md);
     content.innerHTML = html;
 
-    // Store plain text for TTS
-    currentText = extractPlainText(md);
-
-    // Make h2 sections collapsible
     setupCollapsible();
 
   } catch (e) {
     content.innerHTML = '<div class="empty-state"><p>この号の読み込みに失敗しました。</p></div>';
   }
-}
-
-// === Extract plain text from markdown for TTS ===
-function extractPlainText(md) {
-  return md
-    .replace(/^---+$/gm, '')
-    .replace(/^#+\s*/gm, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/^[-*]\s+/gm, '')
-    .replace(/^>\s*/gm, '')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }
 
 // === Collapsible sections ===
@@ -485,212 +430,13 @@ function setupCollapsible() {
   });
 }
 
-// === Speech Synthesis ===
-function toggleSpeech() {
-  const synth = window.speechSynthesis;
-
-  if (isSpeaking && !isPaused) {
-    // Pause
-    synth.pause();
-    isPaused = true;
-    updateAudioUI('paused');
-    return;
-  }
-
-  if (isPaused) {
-    // Resume
-    synth.resume();
-    isPaused = false;
-    updateAudioUI('playing');
-    return;
-  }
-
-  // Start new
-  if (!currentText) return;
-
-  // Split into chunks (speechSynthesis has character limits)
-  const chunks = splitText(currentText, 200);
-  speakChunks(chunks, 0);
-}
-
-function splitText(text, maxLen) {
-  const sentences = text.split(/(?<=[。！？\n])/);
-  const chunks = [];
-  let current = '';
-
-  sentences.forEach(s => {
-    if ((current + s).length > maxLen && current.length > 0) {
-      chunks.push(current.trim());
-      current = s;
-    } else {
-      current += s;
-    }
-  });
-  if (current.trim()) chunks.push(current.trim());
-  return chunks;
-}
-
-function speakChunks(chunks, index) {
-  if (index >= chunks.length) {
-    stopSpeech();
-    return;
-  }
-
-  const synth = window.speechSynthesis;
-  const utter = new SpeechSynthesisUtterance(chunks[index]);
-  utter.lang = 'ja-JP';
-  utter.rate = speechRate;
-
-  // Use selected voice
-  if (selectedVoice) utter.voice = selectedVoice;
-
-  utter.onend = () => {
-    speakChunks(chunks, index + 1);
-  };
-
-  utter.onerror = () => {
-    speakChunks(chunks, index + 1);
-  };
-
-  speechUtterance = utter;
-  isSpeaking = true;
-  isPaused = false;
-  updateAudioUI('playing');
-
-  synth.speak(utter);
-}
-
-function stopSpeech() {
-  const synth = window.speechSynthesis;
-  synth.cancel();
-  isSpeaking = false;
-  isPaused = false;
-  speechUtterance = null;
-  updateAudioUI('stopped');
-}
-
-function cycleSpeed() {
-  speedIndex = (speedIndex + 1) % speeds.length;
-  speechRate = speeds[speedIndex];
-  document.getElementById('btnSpeed').textContent = speechRate + 'x';
-
-  // If currently speaking, restart with new speed
-  if (isSpeaking) {
-    stopSpeech();
-    toggleSpeech();
-  }
-}
-
-function updateAudioUI(state) {
-  const btn = document.getElementById('btnPlay');
-  const status = document.getElementById('audioStatus');
-
-  switch(state) {
-    case 'playing':
-      btn.innerHTML = '&#10074;&#10074;';
-      btn.classList.add('playing');
-      status.textContent = '音声: 再生中...';
-      break;
-    case 'paused':
-      btn.innerHTML = '&#9654;';
-      btn.classList.remove('playing');
-      status.textContent = '音声: 一時停止';
-      break;
-    case 'stopped':
-      btn.innerHTML = '&#9654;';
-      btn.classList.remove('playing');
-      status.textContent = '音声: 準備OK';
-      break;
-  }
-}
-
-// === Voice picker ===
-function loadVoices() {
-  const synth = window.speechSynthesis;
-  const allVoices = synth.getVoices();
-
-  if (allVoices.length === 0) return;
-
-  // Keep all voices that are Japanese OR contain Siri/O-Ren/Otoya in name
-  const isUseful = (v) => {
-    const name = v.name.toLowerCase();
-    return v.lang.startsWith('ja') ||
-           name.includes('siri') ||
-           name.includes('o-ren') ||
-           name.includes('otoya') ||
-           name.includes('kyoko');
-  };
-
-  jaVoices = allVoices.filter(isUseful);
-
-  // If nothing found with filter, show all voices
-  if (jaVoices.length === 0) {
-    jaVoices = [...allVoices];
-  }
-
-  // Sort: Siri first, then Japanese, then rest
-  jaVoices.sort((a, b) => {
-    const score = (v) => {
-      const name = v.name.toLowerCase();
-      if (name.includes('siri')) return 30;
-      if (name.match(/enhanced|premium|拡張/)) return 20;
-      if (v.lang.startsWith('ja')) return 10;
-      return 0;
-    };
-    return score(b) - score(a);
-  });
-
-  // Debug: show all raw voices
-  const debugEl = document.getElementById('voiceDebug');
-  debugEl.innerHTML = '<b>全音声 (' + allVoices.length + '件):</b><br>' +
-    allVoices.map(v => v.name + ' [' + v.lang + ']').join('<br>');
-
-  const picker = document.getElementById('voicePicker');
-  picker.innerHTML = '';
-
-  jaVoices.forEach((voice, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = voice.name;
-    picker.appendChild(opt);
-  });
-
-  // Auto-select: Siri > Enhanced > first
-  const siri = jaVoices.findIndex(v => v.name.toLowerCase().includes('siri'));
-  const bestIdx = siri >= 0 ? siri : 0;
-  selectedVoice = jaVoices[bestIdx];
-  picker.value = String(bestIdx);
-}
-
-function selectVoice(index) {
-  selectedVoice = jaVoices[parseInt(index)];
-  // Restart if currently speaking
-  if (isSpeaking) {
-    stopSpeech();
-    toggleSpeech();
-  }
+// === Read aloud tip toggle ===
+function toggleTip() {
+  document.getElementById('readAloudDetail').classList.toggle('open');
 }
 
 // === Init ===
-function init() {
-  loadVoices();
-  loadIndex();
-
-  // iOS Safari sometimes needs multiple attempts to load voices
-  let retries = 0;
-  const voiceCheck = setInterval(() => {
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0 || retries > 10) {
-      clearInterval(voiceCheck);
-      if (voices.length > 0) loadVoices();
-    }
-    retries++;
-  }, 500);
-}
-
-// Voices may load async
-window.speechSynthesis.onvoiceschanged = loadVoices;
-init();
+loadIndex();
 </script>
 
 </body>
