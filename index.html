@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>KOKONI Weekly News</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --text: #e8e8e8;
+    --text-dim: #999;
+    --accent: #4a9eff;
+    --accent-dim: #2a6fcc;
+    --border: #333;
+    --green: #4caf50;
+    --red: #ef5350;
+    --yellow: #ffc107;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    min-height: 100vh;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Header */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header h1 {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .header h1 span {
+    color: var(--accent);
+  }
+
+  /* Issue selector */
+  .issue-selector {
+    margin-top: 8px;
+  }
+
+  .issue-selector select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+  }
+
+  /* Audio controls */
+  .audio-bar {
+    position: sticky;
+    top: 65px;
+    z-index: 99;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .audio-bar button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .audio-bar button:active {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .audio-bar button.playing {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .audio-status {
+    font-size: 12px;
+    color: var(--text-dim);
+    flex: 1;
+  }
+
+  .speed-btn {
+    font-size: 12px !important;
+    width: auto !important;
+    padding: 4px 10px !important;
+    border-radius: 16px !important;
+  }
+
+  /* Content */
+  .content {
+    padding: 16px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+
+  .loading .spinner {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Markdown rendered content */
+  .content h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: var(--accent);
+  }
+
+  .content h1 + p {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+
+  .content h2 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 28px 0 12px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+  }
+
+  .content h2::after {
+    content: '\25BC';
+    position: absolute;
+    right: 14px;
+    font-size: 10px;
+    color: var(--text-dim);
+    transition: transform 0.2s;
+  }
+
+  .content h2.collapsed::after {
+    transform: rotate(-90deg);
+  }
+
+  .section-content {
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  .section-content.collapsed {
+    max-height: 0 !important;
+  }
+
+  .content h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 20px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .content p {
+    margin: 8px 0;
+    font-size: 14px;
+  }
+
+  .content strong {
+    color: var(--accent);
+  }
+
+  .content blockquote {
+    border-left: 3px solid var(--yellow);
+    background: rgba(255, 193, 7, 0.08);
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+  }
+
+  .content ul, .content ol {
+    padding-left: 20px;
+    margin: 8px 0;
+  }
+
+  .content li {
+    font-size: 14px;
+    margin: 4px 0;
+  }
+
+  .content a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .content hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }
+
+  .content code {
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+
+  .content em {
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  /* Section highlight colors */
+  .content h3:has(+ p strong:first-child) {
+    color: var(--text);
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--text-dim);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 32px;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+  }
+
+  .empty-state p {
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <h1><span>KOKONI</span> Weekly News</h1>
+  </div>
+  <div class="issue-selector">
+    <select id="issuePicker" onchange="loadIssue(this.value)">
+      <option value="">読み込み中...</option>
+    </select>
+  </div>
+</div>
+
+<div class="audio-bar">
+  <button id="btnPlay" onclick="toggleSpeech()" title="再生/一時停止">&#9654;</button>
+  <button id="btnStop" onclick="stopSpeech()" title="停止">&#9632;</button>
+  <span class="audio-status" id="audioStatus">音声: 準備OK</span>
+  <button class="speed-btn" id="btnSpeed" onclick="cycleSpeed()">1x</button>
+</div>
+
+<div class="content" id="content">
+  <div class="loading">
+    <div class="spinner"></div>
+    <p style="margin-top: 12px;">ニュースを読み込み中...</p>
+  </div>
+</div>
+
+<div class="footer">
+  KOKONI Weekly News Viewer<br>
+  Powered by KOKONI Research AI
+</div>
+
+<script>
+// === State ===
+let issues = [];
+let currentText = '';
+let speechUtterance = null;
+let isSpeaking = false;
+let isPaused = false;
+let speechRate = 1.0;
+const speeds = [0.8, 1.0, 1.2, 1.5, 1.8];
+let speedIndex = 1;
+
+// === Base URL detection ===
+function getBaseUrl() {
+  const path = window.location.pathname;
+  const dir = path.substring(0, path.lastIndexOf('/') + 1);
+  return window.location.origin + dir;
+}
+
+// === Load index ===
+async function loadIndex() {
+  try {
+    const res = await fetch(getBaseUrl() + 'news/index.json');
+    issues = await res.json();
+    // Sort by date descending (newest first)
+    issues.sort((a, b) => b.date.localeCompare(a.date));
+
+    const picker = document.getElementById('issuePicker');
+    picker.innerHTML = '';
+    issues.forEach((issue, i) => {
+      const opt = document.createElement('option');
+      opt.value = issue.file;
+      const d = new Date(issue.date + 'T00:00:00');
+      const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+      opt.textContent = `${dateStr} — ${issue.title}`;
+      picker.appendChild(opt);
+    });
+
+    // Load latest issue
+    if (issues.length > 0) {
+      loadIssue(issues[0].file);
+    }
+  } catch (e) {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><p>ニュースの読み込みに失敗しました。<br>ネットワーク接続を確認してください。</p></div>';
+  }
+}
+
+// === Load a specific issue ===
+async function loadIssue(filename) {
+  stopSpeech();
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:12px;">読み込み中...</p></div>';
+
+  try {
+    const res = await fetch(getBaseUrl() + 'news/' + filename);
+    const md = await res.text();
+
+    // Render markdown
+    const html = marked.parse(md);
+    content.innerHTML = html;
+
+    // Store plain text for TTS
+    currentText = extractPlainText(md);
+
+    // Make h2 sections collapsible
+    setupCollapsible();
+
+  } catch (e) {
+    content.innerHTML = '<div class="empty-state"><p>この号の読み込みに失敗しました。</p></div>';
+  }
+}
+
+// === Extract plain text from markdown for TTS ===
+function extractPlainText(md) {
+  return md
+    .replace(/^---+$/gm, '')
+    .replace(/^#+\s*/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^[-*]\s+/gm, '')
+    .replace(/^>\s*/gm, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// === Collapsible sections ===
+function setupCollapsible() {
+  const content = document.getElementById('content');
+  const h2s = content.querySelectorAll('h2');
+
+  h2s.forEach(h2 => {
+    // Wrap following content until next h2
+    const wrapper = document.createElement('div');
+    wrapper.className = 'section-content';
+
+    let next = h2.nextElementSibling;
+    while (next && next.tagName !== 'H2') {
+      const toMove = next;
+      next = next.nextElementSibling;
+      wrapper.appendChild(toMove);
+    }
+    h2.after(wrapper);
+
+    // Toggle on click
+    h2.addEventListener('click', () => {
+      const isCollapsed = h2.classList.toggle('collapsed');
+      if (isCollapsed) {
+        wrapper.style.maxHeight = wrapper.scrollHeight + 'px';
+        requestAnimationFrame(() => {
+          wrapper.classList.add('collapsed');
+        });
+      } else {
+        wrapper.classList.remove('collapsed');
+        wrapper.style.maxHeight = wrapper.scrollHeight + 'px';
+        setTimeout(() => {
+          wrapper.style.maxHeight = 'none';
+        }, 300);
+      }
+    });
+
+    // Set initial max-height
+    wrapper.style.maxHeight = 'none';
+  });
+}
+
+// === Speech Synthesis ===
+function toggleSpeech() {
+  const synth = window.speechSynthesis;
+
+  if (isSpeaking && !isPaused) {
+    // Pause
+    synth.pause();
+    isPaused = true;
+    updateAudioUI('paused');
+    return;
+  }
+
+  if (isPaused) {
+    // Resume
+    synth.resume();
+    isPaused = false;
+    updateAudioUI('playing');
+    return;
+  }
+
+  // Start new
+  if (!currentText) return;
+
+  // Split into chunks (speechSynthesis has character limits)
+  const chunks = splitText(currentText, 200);
+  speakChunks(chunks, 0);
+}
+
+function splitText(text, maxLen) {
+  const sentences = text.split(/(?<=[。！？\n])/);
+  const chunks = [];
+  let current = '';
+
+  sentences.forEach(s => {
+    if ((current + s).length > maxLen && current.length > 0) {
+      chunks.push(current.trim());
+      current = s;
+    } else {
+      current += s;
+    }
+  });
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
+function speakChunks(chunks, index) {
+  if (index >= chunks.length) {
+    stopSpeech();
+    return;
+  }
+
+  const synth = window.speechSynthesis;
+  const utter = new SpeechSynthesisUtterance(chunks[index]);
+  utter.lang = 'ja-JP';
+  utter.rate = speechRate;
+
+  // Try to find a Japanese voice
+  const voices = synth.getVoices();
+  const jaVoice = voices.find(v => v.lang.startsWith('ja'));
+  if (jaVoice) utter.voice = jaVoice;
+
+  utter.onend = () => {
+    speakChunks(chunks, index + 1);
+  };
+
+  utter.onerror = () => {
+    speakChunks(chunks, index + 1);
+  };
+
+  speechUtterance = utter;
+  isSpeaking = true;
+  isPaused = false;
+  updateAudioUI('playing');
+
+  synth.speak(utter);
+}
+
+function stopSpeech() {
+  const synth = window.speechSynthesis;
+  synth.cancel();
+  isSpeaking = false;
+  isPaused = false;
+  speechUtterance = null;
+  updateAudioUI('stopped');
+}
+
+function cycleSpeed() {
+  speedIndex = (speedIndex + 1) % speeds.length;
+  speechRate = speeds[speedIndex];
+  document.getElementById('btnSpeed').textContent = speechRate + 'x';
+
+  // If currently speaking, restart with new speed
+  if (isSpeaking) {
+    stopSpeech();
+    toggleSpeech();
+  }
+}
+
+function updateAudioUI(state) {
+  const btn = document.getElementById('btnPlay');
+  const status = document.getElementById('audioStatus');
+
+  switch(state) {
+    case 'playing':
+      btn.innerHTML = '&#10074;&#10074;';
+      btn.classList.add('playing');
+      status.textContent = '音声: 再生中...';
+      break;
+    case 'paused':
+      btn.innerHTML = '&#9654;';
+      btn.classList.remove('playing');
+      status.textContent = '音声: 一時停止';
+      break;
+    case 'stopped':
+      btn.innerHTML = '&#9654;';
+      btn.classList.remove('playing');
+      status.textContent = '音声: 準備OK';
+      break;
+  }
+}
+
+// === Init ===
+// Wait for voices to load
+window.speechSynthesis.onvoiceschanged = () => {};
+loadIndex();
+</script>
+
+</body>
+</html>
