@@ -607,34 +607,56 @@ function updateAudioUI(state) {
 function loadVoices() {
   const synth = window.speechSynthesis;
   const allVoices = synth.getVoices();
-  jaVoices = allVoices.filter(v => v.lang.startsWith('ja'));
+
+  // Show ALL voices (not just Japanese) so user can see what's available
+  // But put Japanese voices first
+  const jaOnly = allVoices.filter(v => v.lang.startsWith('ja'));
+  const others = allVoices.filter(v => !v.lang.startsWith('ja'));
+  jaVoices = [...jaOnly, ...others];
 
   const picker = document.getElementById('voicePicker');
   picker.innerHTML = '';
 
   if (jaVoices.length === 0) {
-    picker.innerHTML = '<option value="">日本語の声が見つかりません</option>';
+    picker.innerHTML = '<option value="">声が見つかりません</option>';
     return;
   }
 
-  // Sort: prefer enhanced/premium voices (they usually have longer names or "Enhanced"/"Premium" tags)
-  jaVoices.sort((a, b) => {
-    const aScore = (a.name.match(/enhanced|premium|拡張/i) ? 10 : 0) + (a.localService ? 0 : 5);
-    const bScore = (b.name.match(/enhanced|premium|拡張/i) ? 10 : 0) + (b.localService ? 0 : 5);
-    return bScore - aScore;
-  });
+  // Debug: show count
+  console.log('Available voices:', allVoices.length, 'Japanese:', jaOnly.length);
+  allVoices.forEach(v => console.log(v.name, v.lang, v.localService));
 
-  jaVoices.forEach((voice, i) => {
+  jaOnly.forEach((voice, i) => {
     const opt = document.createElement('option');
     opt.value = i;
-    const tag = voice.name.match(/enhanced|premium|拡張/i) ? ' (高品質)' : '';
-    opt.textContent = voice.name + tag;
+    const enhanced = voice.name.match(/enhanced|premium|拡張/i) ? ' (高品質)' : '';
+    opt.textContent = voice.name + enhanced;
     picker.appendChild(opt);
   });
 
-  // Auto-select best voice
-  selectedVoice = jaVoices[0];
-  picker.value = '0';
+  // Add separator and other languages
+  if (others.length > 0) {
+    const sep = document.createElement('option');
+    sep.disabled = true;
+    sep.textContent = '── 他の言語 ──';
+    picker.appendChild(sep);
+
+    others.forEach((voice, i) => {
+      const opt = document.createElement('option');
+      opt.value = jaOnly.length + i;
+      opt.textContent = `${voice.name} (${voice.lang})`;
+      picker.appendChild(opt);
+    });
+  }
+
+  // Auto-select best Japanese voice
+  if (jaOnly.length > 0) {
+    // Prefer enhanced
+    const enhanced = jaOnly.findIndex(v => v.name.match(/enhanced|premium|拡張/i));
+    const bestIdx = enhanced >= 0 ? enhanced : 0;
+    selectedVoice = jaOnly[bestIdx];
+    picker.value = String(bestIdx);
+  }
 }
 
 function selectVoice(index) {
@@ -650,6 +672,17 @@ function selectVoice(index) {
 function init() {
   loadVoices();
   loadIndex();
+
+  // iOS Safari sometimes needs multiple attempts to load voices
+  let retries = 0;
+  const voiceCheck = setInterval(() => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0 || retries > 10) {
+      clearInterval(voiceCheck);
+      if (voices.length > 0) loadVoices();
+    }
+    retries++;
+  }, 500);
 }
 
 // Voices may load async
