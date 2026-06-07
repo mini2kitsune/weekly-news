@@ -59,44 +59,19 @@
     color: var(--accent);
   }
 
-  .header-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-  .header-link, .header-btn {
+  .header-link {
     display: inline-block;
-    padding: 6px 10px;
+    padding: 6px 12px;
     background: var(--accent);
     color: white;
-    border: none;
     border-radius: 6px;
     font-size: 13px;
     font-weight: 600;
     text-decoration: none;
     white-space: nowrap;
-    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    font-family: inherit;
   }
-  .header-link:active, .header-btn:active { background: var(--accent-dim); }
-  .header-btn.toggled {
-    background: var(--surface2);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-  }
-
-  /* 短縮表示モード — 各H3直後の1段落のみ残し、他の本文要素は隠す */
-  body.short-mode .short-hidden { display: none; }
-  body.short-mode .content h3 {
-    margin: 14px 0 6px;
-    color: var(--text);
-  }
-  body.short-mode .content h3 + p {
-    font-size: 13px;
-    color: var(--text-dim);
-    margin: 0 0 12px;
-  }
+  .header-link:active { background: var(--accent-dim); }
 
   /* Issue selector */
   .issue-selector {
@@ -284,10 +259,7 @@
 <div class="header">
   <div class="header-top">
     <h1>Weekly News</h1>
-    <div class="header-actions">
-      <button class="header-btn" id="shortBtn" onclick="toggleShortMode()">📰 短縮</button>
-      <a class="header-link" href="notebooklm.html">🎧 音声化</a>
-    </div>
+    <a class="header-link" href="notebooklm.html">🎧 音声化</a>
   </div>
   <div class="issue-selector">
     <select id="issuePicker" onchange="loadIssue(this.value)">
@@ -311,65 +283,6 @@
 <script>
 // === State ===
 let issues = [];
-
-// === Short mode (見出し＋各H3直後の1段落のみ表示) ===
-const SHORT_KEY = 'kokoni-short-mode';
-
-function getFlattenedContent() {
-  const result = [];
-  const content = document.getElementById('content');
-  if (!content) return result;
-  function walk(node) {
-    for (const el of Array.from(node.children)) {
-      if (el.classList && el.classList.contains('section-content')) walk(el);
-      else result.push(el);
-    }
-  }
-  walk(content);
-  return result;
-}
-
-function applyShortMode(on) {
-  document.body.classList.toggle('short-mode', on);
-  const btn = document.getElementById('shortBtn');
-  if (btn) {
-    if (on) { btn.classList.add('toggled'); btn.textContent = '📄 全文'; }
-    else    { btn.classList.remove('toggled'); btn.textContent = '📰 短縮'; }
-  }
-  // 既存マーカー解除
-  const content = document.getElementById('content');
-  if (!content) return;
-  content.querySelectorAll('.short-hidden').forEach(el => el.classList.remove('short-hidden'));
-  if (!on) return;
-
-  // 走査: H3直後の最初の<p>のみ残し、他は隠す。H1/H2は常に表示
-  const flat = getFlattenedContent();
-  let inArticle = false;
-  let keptParas = 0;
-  for (const el of flat) {
-    const tag = el.tagName;
-    if (tag === 'H1' || tag === 'H2') {
-      inArticle = false; keptParas = 0;
-    } else if (tag === 'H3') {
-      inArticle = true; keptParas = 0;
-    } else if (inArticle) {
-      if (tag === 'P' && keptParas < 1) keptParas++;
-      else el.classList.add('short-hidden');
-    } else {
-      // H3より前のイントロ段落等は短縮時は隠す
-      el.classList.add('short-hidden');
-    }
-  }
-}
-
-function toggleShortMode() {
-  const now = !document.body.classList.contains('short-mode');
-  applyShortMode(now);
-  localStorage.setItem(SHORT_KEY, now ? '1' : '0');
-}
-function isShortModeOn() {
-  return localStorage.getItem(SHORT_KEY) === '1';
-}
 
 // === Base URL detection ===
 function getBaseUrl() {
@@ -420,7 +333,6 @@ async function loadIssue(filename) {
     content.innerHTML = html;
 
     setupCollapsible();
-    applyShortMode(isShortModeOn());
 
   } catch (e) {
     content.innerHTML = '<div class="empty-state"><p>この号の読み込みに失敗しました。</p></div>';
@@ -468,7 +380,6 @@ function setupCollapsible() {
 }
 
 // === Init ===
-applyShortMode(isShortModeOn());
 loadIndex();
 </script>
 
