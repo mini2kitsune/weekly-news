@@ -59,19 +59,45 @@
     color: var(--accent);
   }
 
-  .header-link {
+  .header-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .header-link, .header-btn {
     display: inline-block;
-    padding: 6px 12px;
+    padding: 6px 10px;
     background: var(--accent);
     color: white;
+    border: none;
     border-radius: 6px;
     font-size: 13px;
     font-weight: 600;
     text-decoration: none;
     white-space: nowrap;
+    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
   }
-  .header-link:active { background: var(--accent-dim); }
+  .header-link:active, .header-btn:active { background: var(--accent-dim); }
+  .header-btn.toggled {
+    background: var(--surface2);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+
+  /* 短縮表示モード — 見出し（H1/H2/H3）以外の本文要素を隠す */
+  body.short-mode .content p,
+  body.short-mode .content ul,
+  body.short-mode .content ol,
+  body.short-mode .content hr,
+  body.short-mode .content blockquote {
+    display: none;
+  }
+  body.short-mode .content h3 {
+    margin: 14px 0 6px;
+    color: var(--text);
+  }
 
   /* Issue selector */
   .issue-selector {
@@ -259,7 +285,10 @@
 <div class="header">
   <div class="header-top">
     <h1>Weekly News</h1>
-    <a class="header-link" href="notebooklm.html">🎧 音声化</a>
+    <div class="header-actions">
+      <button class="header-btn" id="shortBtn" onclick="toggleShortMode()">📰 短縮</button>
+      <a class="header-link" href="notebooklm.html">🎧 音声化</a>
+    </div>
   </div>
   <div class="issue-selector">
     <select id="issuePicker" onchange="loadIssue(this.value)">
@@ -283,6 +312,29 @@
 <script>
 // === State ===
 let issues = [];
+
+// === Short mode (見出しのみ表示) ===
+const SHORT_KEY = 'kokoni-short-mode';
+function applyShortMode(on) {
+  document.body.classList.toggle('short-mode', on);
+  const btn = document.getElementById('shortBtn');
+  if (on) {
+    btn.classList.add('toggled');
+    btn.textContent = '📄 全文';
+  } else {
+    btn.classList.remove('toggled');
+    btn.textContent = '📰 短縮';
+  }
+}
+function toggleShortMode() {
+  const now = !document.body.classList.contains('short-mode');
+  applyShortMode(now);
+  localStorage.setItem(SHORT_KEY, now ? '1' : '0');
+}
+function initShortMode() {
+  applyShortMode(localStorage.getItem(SHORT_KEY) === '1');
+}
+initShortMode();
 
 // === Base URL detection ===
 function getBaseUrl() {
