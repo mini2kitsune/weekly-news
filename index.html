@@ -279,7 +279,7 @@ function getBaseUrl() {
 // === Load index ===
 async function loadIndex() {
   try {
-    const res = await fetch(getBaseUrl() + 'news/index.json');
+    const res = await fetch(getBaseUrl() + 'news/index.json?t=' + Date.now());
     issues = await res.json();
     // Sort by date descending (newest first)
     issues.sort((a, b) => b.date.localeCompare(a.date));
@@ -311,7 +311,7 @@ async function loadIssue(filename) {
   content.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:12px;">読み込み中...</p></div>';
 
   try {
-    const res = await fetch(getBaseUrl() + 'news/' + filename);
+    const res = await fetch(getBaseUrl() + 'news/' + filename + '?t=' + Date.now());
     const md = await res.text();
 
     const html = marked.parse(md);
